@@ -131,6 +131,46 @@ export function createRouter(historyManager: HistoryManager) {
     });
   });
 
+  // Vercel AI SDK 兼容端点: POST /chat
+  // 适配 useChat hook 的默认端点
+  router.post("/chat", async (c) => {
+    const { messages } = await c.req.json();
+    const sessionID = getTodayDate();
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return c.json({ error: "Messages are required" }, 400);
+    }
+
+    // 获取最后一条用户消息
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage.role !== "user") {
+      return c.json({ error: "Last message must be from user" }, 400);
+    }
+
+    // 创建 SessionPrompt 实例
+    const sessionPrompt = new SessionPrompt(sessionID, historyManager);
+
+    // 返回流式响应（纯文本格式，适配 streamProtocol: 'text'）
+    return stream(c, async (streamWriter) => {
+      try {
+        // 调用 SessionPrompt.prompt() 获取流
+        const responseStream = await sessionPrompt.prompt(lastMessage.content);
+
+        // 从 LLM 流中读取并写入 HTTP 响应
+        for await (const chunk of responseStream) {
+          streamWriter.write(chunk);
+        }
+
+        // 完成流
+        await streamWriter.close();
+      } catch (error: any) {
+        console.error("[Chat Stream Error]", error);
+        streamWriter.write(`\n\n[Error: ${error.message}]`);
+        await streamWriter.close();
+      }
+    });
+  });
+
   return router;
 }
 

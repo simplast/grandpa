@@ -2,7 +2,9 @@ import readline from "readline";
 
 export class InteractiveInput {
   private rl: readline.Interface;
-  private buffer: string[] = [];
+  private buffer: string = "";
+  private isShiftPressed: boolean = false;
+  private resolveInput: ((value: string) => void) | null = null;
 
   constructor() {
     this.rl = readline.createInterface({
@@ -13,27 +15,50 @@ export class InteractiveInput {
 
     // 监听原始按键事件
     process.stdin.setRawMode(true);
-    process.stdin.on("keypress", (_str, key) => {
+    process.stdin.on("keypress", (str, key) => {
       // Ctrl+C 退出
       if (key && key.ctrl && key.name === "c") {
         process.exit(0);
+      }
+
+      // 检测 Shift 键状态
+      if (key && key.name === "shift") {
+        this.isShiftPressed = true;
+      }
+
+      // 检测 Enter 键
+      if (key && key.name === "return") {
+        if (this.isShiftPressed) {
+          // Shift+Enter: 换行
+          this.buffer += "\n";
+          process.stdout.write("\n");
+        } else {
+          // 单独 Enter: 发送消息
+          if (this.resolveInput) {
+            const message = this.buffer.trim();
+            this.buffer = "";
+            this.rl.removeAllListeners("line");
+            this.resolveInput(message);
+            this.resolveInput = null;
+          }
+        }
+      }
+    });
+
+    // 检测 Shift 键释放
+    process.stdin.on("keypress", (_str, key) => {
+      if (key && key.name === "shift") {
+        this.isShiftPressed = false;
       }
     });
   }
 
   async prompt(): Promise<string> {
     return new Promise((resolve) => {
-      this.buffer = [];
+      this.buffer = "";
+      this.resolveInput = resolve;
 
-      const promptLine = () => {
-        if (this.buffer.length === 0) {
-          process.stdout.write("grandpa > ");
-        } else {
-          process.stdout.write("         > ");
-        }
-      };
-
-      promptLine();
+      process.stdout.write("grandpa > ");
 
       this.rl.on("line", (line) => {
         // 检查是否是 exit 命令
@@ -42,28 +67,11 @@ export class InteractiveInput {
           process.exit(0);
         }
 
-        // 如果缓冲区为空且输入为空行，继续等待
-        if (line === "" && this.buffer.length === 0) {
-          promptLine();
-          return;
+        // 将输入添加到缓冲区
+        if (this.buffer.length > 0) {
+          this.buffer += "\n";
         }
-
-        // 如果输入为空行但缓冲区有内容，发送消息
-        if (line === "" && this.buffer.length > 0) {
-          const message = this.buffer.join("\n").trim();
-          if (message) {
-            this.rl.removeAllListeners("line");
-            resolve(message);
-            return;
-          }
-        }
-
-        // 非空行 - 添加到缓冲区
-        if (line !== "") {
-          this.buffer.push(line);
-          process.stdout.write("\n");
-          promptLine();
-        }
+        this.buffer += line;
       });
     });
   }

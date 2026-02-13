@@ -31,8 +31,8 @@ export async function startInteractiveMode() {
   // Display welcome
   console.log("\n🤖 Grandpa Assistant Ready");
   console.log("   Today's session: " + new Date().toISOString().split("T")[0]);
-  console.log("   Type your message and press Enter.");
-  console.log("   Press Enter on empty line to send.");
+  console.log("   Type your message and press Enter to send.");
+  console.log("   Press Shift+Enter for a new line.");
   console.log("   Type 'exit' to quit.\n");
 
   // Interactive loop
