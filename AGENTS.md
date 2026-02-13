@@ -4,7 +4,7 @@
 
 ## 项目概述
 
-**Grandpa CLI** 是一个现代化的命令行应用程序，具有 AI 聊天功能和聊天记录管理，灵感来源于 [OpenCode](https://github.com/anomalyco/opencode) 架构。
+**Grandpa CLI** 是一个现代化的命令行应用程序，具有 AI 聊天功能和聊天记录管理，灵感来源于 [OpenCode](https://github.com/anomalyco/opencode) 架构。项目现在还包含一个 Web 聊天界面，支持热重载。
 
 ### 核心特性
 
@@ -17,7 +17,8 @@
 - **交互式 CLI**: 用户友好的提示和加载动画
 - **AI 聊天**: 集成 AI 聊天功能，支持历史记录管理
 - **HTTP 服务器**: 可选的 HTTP 服务器，支持 SSE 流式响应
-- **插件系统**: 易于扩展新命令
+- **Web 界面**: 基于 Vite + React 的聊天界面，支持热重载
+- **Vercel AI SDK**: 集成最新 Vercel AI SDK，支持流式响应
 
 ## 技术栈
 
@@ -32,6 +33,11 @@
 | **Chalk** | 终端样式 |
 | **Ora** | 加载动画和进度 |
 | **Hono** | HTTP 服务器框架 |
+| **Vite** | Web 前端构建工具 |
+| **React** | Web 前端框架 |
+| **Vercel AI SDK** | AI 集成和流式响应 |
+| **@ai-sdk/openai** | OpenAI 兼容 API 提供商 |
+| **@ai-sdk/react** | React AI 集成 |
 
 ## 项目结构
 
@@ -86,6 +92,15 @@ grandpa/
 │           ├── provider.ts     # 提供商配置
 │           ├── types.ts        # 类型定义
 │           └── routes/         # 路由目录
+└── web/                        # Web 聊天界面
+    ├── src/
+    │   ├── App.tsx            # 主应用组件
+    │   ├── App.css            # 样式文件
+    │   ├── main.tsx           # 入口文件
+    │   └── index.css          # 全局样式
+    ├── package.json
+    ├── vite.config.ts         # Vite 配置
+    └── tsconfig.json
 ├── turbo.json                  # Turborepo 配置
 ├── bunfig.toml                 # Bun 配置
 ├── tsconfig.json               # TypeScript 配置
@@ -105,6 +120,9 @@ bun run dev
 
 # 启动服务器开发模式（默认端口 3478）
 bun run dev:server
+
+# 启动 Web 前端开发模式（默认端口 3000）
+bun run dev:web
 
 # 在指定端口启动服务器
 bun run dev:server:port          # 端口 3478
@@ -300,13 +318,16 @@ import { AIService } from "@grandpa/ai"; // → packages/ai/src/index.ts
 
 - **端口**: 默认 3478，可通过 `--port=` 参数配置
 - **端点**:
-  - `POST /chat` - 发送消息，立即返回，异步处理（旧版端点）
-  - `POST /session/:sessionID/message` - 流式响应（新端点）
-  - `POST /session/:sessionID/message/non-stream` - 非流式响应（新端点）
+  - `POST /chat` - 发送消息，流式响应（使用 Vercel AI SDK）
+  - `POST /session/:sessionID/message` - 流式响应（旧版端点）
+  - `POST /session/:sessionID/message/non-stream` - 非流式响应（旧版端点）
   - `GET /session/:sessionID/history` - 获取会话历史
   - `GET /status/:date` - 检查处理状态（旧版端点）
   - `GET /health` - 健康检查
   - `DELETE /session/:sessionID` - 清除会话
+- **AI 集成**: 使用 Vercel AI SDK 的 `streamText` 和 `createOpenAI`
+- **OpenAI 兼容**: 支持小米 MiMo API 等兼容 OpenAI 格式的提供商
+- **流式响应**: 使用 `toUIMessageStreamResponse()` 返回 UI 消息流
 - **后台处理**: 使用 `processingQueue` Map 跟踪异步 AI 响应（旧版端点）
 - **历史记录**: 消息按日期保存到 `~/.config/grandpa-cli/history/` (YYYY-MM-DD)
 - **消息保存**: 每条消息（用户 + AI 响应）由 `SessionPrompt.prompt()` 保存一次
@@ -499,8 +520,9 @@ grandpa history --clear 2026-01-20
 3. ✅ 测试 CLI: `bun run cli --help`
 4. ✅ 启动 CLI 开发: `bun run dev`
 5. ✅ 启动服务器开发: `bun run dev:server`
-6. ✅ 阅读 `CLAUDE.md` 获取详细命令
-7. ✅ 阅读 `README.md` 获取面向用户的文档
+6. ✅ 启动 Web 前端: `bun run dev:web`
+7. ✅ 阅读 `CLAUDE.md` 获取详细命令
+8. ✅ 阅读 `README.md` 获取面向用户的文档
 
 ## 文件路径参考
 
@@ -508,9 +530,11 @@ grandpa history --clear 2026-01-20
 - **CLI 命令**: `/Users/jack/code/aiproject/grandpa/apps/cli/src/commands/`
 - **核心类型**: `/Users/jack/code/aiproject/grandpa/packages/core/src/types.ts`
 - **配置模式**: `/Users/jack/code/aiproject/grandpa/packages/config/src/schema.ts`
+- **配置管理器**: `/Users/jack/code/aiproject/grandpa/packages/config/src/manager.ts`
 - **服务器主类**: `/Users/jack/code/aiproject/grandpa/packages/server/src/server.ts`
 - **服务器路由**: `/Users/jack/code/aiproject/grandpa/packages/server/src/router.ts`
 - **历史管理**: `/Users/jack/code/aiproject/grandpa/packages/ai/src/history-manager.ts`
+- **Web 入口**: `/Users/jack/code/aiproject/grandpa/packages/web/src/App.tsx`
 - **根配置**: `/Users/jack/code/aiproject/grandpa/package.json`
 - **TS 配置**: `/Users/jack/code/aiproject/grandpa/tsconfig.json`
 - **Turbo 配置**: `/Users/jack/code/aiproject/grandpa/turbo.json`

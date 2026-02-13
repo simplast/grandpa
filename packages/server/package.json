@@ -20,10 +20,12 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "hono": "^4.6.0",
-    "@hono/node-server": "^1.13.0",
+    "@ai-sdk/openai": "3.0.28",
     "@grandpa/ai": "workspace:*",
-    "@grandpa/config": "workspace:*"
+    "@grandpa/config": "workspace:*",
+    "@hono/node-server": "^1.13.0",
+    "ai": "6.0.85",
+    "hono": "^4.6.0"
   },
   "devDependencies": {
     "tsup": "^8.3.5"

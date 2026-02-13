@@ -1,11 +1,32 @@
-import { useChat } from '@ai-sdk/react';
-import './App.css';
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import { useState, useRef, useEffect } from "react";
+import "./App.css";
 
 function App() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: '/api/chat',
-    streamProtocol: 'text',
+  const { messages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+    }),
   });
+  const [input, setInput] = useState("");
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // 自动滚动到底部
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (input.trim() && status === "ready") {
+      await sendMessage({ text: input });
+      setInput("");
+    }
+  };
 
   return (
     <div className="chat-container">
@@ -14,50 +35,43 @@ function App() {
         <p>AI Assistant with hot reload support</p>
       </header>
 
-      <div className="messages-container">
-        {messages.length === 0 ? (
+      <div className="messages-container" ref={chatContainerRef}>
+        {messages.length === 0 && (
           <div className="empty-state">
             <p>Start a conversation by typing below...</p>
           </div>
-        ) : (
-          messages.map((message, index) => (
-            <div
-              key={index}
-              className={`message ${message.role === 'user' ? 'user' : 'assistant'}`}
-            >
-              <div className="message-avatar">
-                {message.role === 'user' ? '👤' : '🤖'}
-              </div>
-              <div className="message-content">
-                <div className="message-text">{message.content}</div>
-              </div>
-            </div>
-          ))
         )}
-        {isLoading && (
-          <div className="message assistant loading">
-            <div className="message-avatar">🤖</div>
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={`message ${message.role === "user" ? "user" : "assistant"}`}
+          >
+            <div className="message-avatar">
+              {message.role === "user" ? "👤" : "🤖"}
+            </div>
             <div className="message-content">
-              <div className="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
+              <div className="message-text">
+                {message.parts?.map((part, index) =>
+                  part.type === "text" ? (
+                    <span key={index}>{part.text}</span>
+                  ) : null,
+                )}
               </div>
             </div>
           </div>
-        )}
+        ))}
       </div>
 
       <form onSubmit={handleSubmit} className="input-form">
         <input
           type="text"
           value={input}
-          onChange={handleInputChange}
+          onChange={(e) => setInput(e.target.value)}
           placeholder="Type your message..."
           className="message-input"
-          disabled={isLoading}
+          disabled={status !== "ready"}
         />
-        <button type="submit" disabled={isLoading || !input.trim()}>
+        <button type="submit" disabled={status !== "ready" || !input.trim()}>
           Send
         </button>
       </form>
@@ -66,3 +80,4 @@ function App() {
 }
 
 export default App;
+

@@ -13,8 +13,8 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^1.0.0",
-    "ai": "^4.0.0",
+    "@ai-sdk/openai": "3.0.28",
+    "ai": "6.0.85",
     "zod": "^3.24.0"
   },
   "devDependencies": {
