@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "module": "ESNext",
+    "target": "ES2022",
+    "moduleResolution": "bundler",
+    "paths": {
+      "@grandpa/core": ["../../packages/core/src"],
+      "@grandpa/config": ["../../packages/config/src"],
+      "@grandpa/server": ["../../packages/server/src"],
+      "@grandpa/ai": ["../../packages/ai/src"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

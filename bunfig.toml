@@ -1,0 +1,24 @@
+[install]
+# Save exact versions in package.json
+exact = true
+
+# Use hardlinks for efficiency
+linkWorkspacePackages = true
+
+# Registry configuration
+registry = "https://registry.npmjs.org"
+
+[scopes]
+# Scoped package registry configuration if needed
+
+[install.typescript]
+# TypeScript-specific settings if needed
+
+[test]
+# Test configuration
+coverage = true
+coverageReporters = ["text", "lcov", "html"]
+
+[install.scopes]
+# Scoped package configuration for @grandpa
+"@grandpa".registry = "https://registry.npmjs.org"

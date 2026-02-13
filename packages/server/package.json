@@ -1,0 +1,31 @@
+{
+  "name": "@grandpa/server",
+  "version": "0.1.0",
+  "description": "HTTP server with SSE support for Grandpa CLI",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "grandpa-server": "./src/cli.ts"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "bun --watch src/cli.ts",
+    "dev:3478": "bun --watch src/cli.ts --port=3478",
+    "dev:8080": "bun --watch src/cli.ts --port=8080",
+    "dev:9000": "bun --watch src/cli.ts --port=9000",
+    "start": "bun src/cli.ts",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist node_modules"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "@hono/node-server": "^1.13.0",
+    "@grandpa/ai": "workspace:*",
+    "@grandpa/config": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5"
+  }
+}
