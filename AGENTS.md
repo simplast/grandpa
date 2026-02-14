@@ -38,6 +38,8 @@
 | **Vercel AI SDK** | AI 集成和流式响应 |
 | **@ai-sdk/openai** | OpenAI 兼容 API 提供商 |
 | **@ai-sdk/react** | React AI 集成 |
+| **react-markdown** | Markdown 渲染 |
+| **remark-gfm** | GitHub Flavored Markdown 支持 |
 
 ## 项目结构
 
@@ -318,19 +320,21 @@ import { AIService } from "@grandpa/ai"; // → packages/ai/src/index.ts
 
 - **端口**: 默认 3478，可通过 `--port=` 参数配置
 - **端点**:
-  - `POST /chat` - 发送消息，流式响应（使用 Vercel AI SDK）
+  - `POST /chat` - 发送消息，流式响应（使用 Vercel AI SDK），支持两种格式：
+    - `{ messages: UIMessage[] }` - 完整消息数组
+    - `{ message: UIMessage, id: string }` - 单条消息 + 会话ID（服务端加载历史）
+  - `GET /sessions` - 获取所有会话列表（带预览信息）
   - `POST /session/:sessionID/message` - 流式响应（旧版端点）
   - `POST /session/:sessionID/message/non-stream` - 非流式响应（旧版端点）
-  - `GET /session/:sessionID/history` - 获取会话历史
+  - `GET /session/:sessionID/history` - 获取会话历史（返回 UIMessage 格式）
   - `GET /status/:date` - 检查处理状态（旧版端点）
   - `GET /health` - 健康检查
   - `DELETE /session/:sessionID` - 清除会话
 - **AI 集成**: 使用 Vercel AI SDK 的 `streamText` 和 `createOpenAI`
 - **OpenAI 兼容**: 支持小米 MiMo API 等兼容 OpenAI 格式的提供商
 - **流式响应**: 使用 `toUIMessageStreamResponse()` 返回 UI 消息流
-- **后台处理**: 使用 `processingQueue` Map 跟踪异步 AI 响应（旧版端点）
 - **历史记录**: 消息按日期保存到 `~/.config/grandpa-cli/history/` (YYYY-MM-DD)
-- **消息保存**: 每条消息（用户 + AI 响应）由 `SessionPrompt.prompt()` 保存一次
+- **消息保存**: `POST /chat` 端点使用 `onFinish` 回调保存消息
 
 ### 5. CLI 架构详情
 
@@ -385,6 +389,22 @@ import { AIService } from "@grandpa/ai"; // → packages/ai/src/index.ts
 - `packages/server/src/session.ts` - SessionPrompt 类，处理提示和消息保存
 - `packages/server/src/llm.ts` - SessionLLM 类，LLM 交互
 - `packages/ai/src/history-manager.ts` - 消息持久化
+
+### Web UI
+
+- `packages/web/src/App.tsx` - 主应用组件，包含：
+  - **会话侧边栏**: 显示历史会话列表，支持切换
+  - **聊天界面**: 消息显示和输入
+  - **Markdown 渲染**: 使用 `react-markdown` + `remark-gfm`
+- `packages/web/src/App.css` - 样式文件，包含 Markdown 样式
+- `packages/web/vite.config.ts` - Vite 配置，代理到服务器
+
+**Web UI 特性**:
+- **历史侧边栏**: 可折叠，显示所有会话及预览
+- **会话切换**: 点击历史记录加载对应会话
+- **Markdown 支持**: GFM 表格、代码高亮、列表等
+- **响应式设计**: 移动端适配
+- **性能优化**: 只发送最后一条消息，服务端加载历史
 
 ## 配置模式
 

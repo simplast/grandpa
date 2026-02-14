@@ -13,6 +13,9 @@ A modern CLI application with AI chat capabilities and chat history management, 
 - **Interactive CLI**: User-friendly prompts and spinners
 - **AI Chat**: Integrated AI chat functionality with history management
 - **Chat History**: View and manage chat history by date
+- **Web Interface**: Modern React-based chat UI with hot reload
+- **History Sidebar**: Browse and switch between chat sessions
+- **Markdown Rendering**: Full GFM support with syntax highlighting
 - **Plugin System**: Easy to extend with new commands
 - **Testing Ready**: Built-in test configuration
 
@@ -24,7 +27,10 @@ grandpa/
 │   └── cli/              # CLI application entry point
 ├── packages/
 │   ├── core/             # Core functionality (commands, logging, etc.)
-│   └── config/           # Configuration management
+│   ├── config/           # Configuration management
+│   ├── ai/               # AI service and history management
+│   ├── server/           # HTTP server with Vercel AI SDK
+│   └── web/              # React web interface
 ├── turbo.json            # Turborepo configuration
 ├── bunfig.toml          # Bun configuration
 ├── tsconfig.json         # TypeScript configuration
@@ -43,6 +49,11 @@ grandpa/
 | **Zod** | Latest | Schema validation |
 | **Chalk** | Latest | Terminal styling |
 | **Ora** | Latest | Spinners & progress |
+| **Hono** | Latest | HTTP server framework |
+| **Vite** | Latest | Web frontend build tool |
+| **React** | Latest | Web frontend framework |
+| **Vercel AI SDK** | Latest | AI integration and streaming |
+| **react-markdown** | Latest | Markdown rendering |
 
 ## 📦 Installation
 
@@ -153,8 +164,14 @@ grandpa history --list
 # Install dependencies
 bun install
 
-# Start development mode (watch mode)
+# Start CLI development mode (watch mode)
 bun run dev
+
+# Start server development mode
+bun run dev:server
+
+# Start web frontend development mode
+bun run dev:web
 
 # Run tests
 bun run test
