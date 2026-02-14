@@ -13,7 +13,7 @@
     "dev:server": "bun --watch run --cwd packages/server src/cli.ts",
     "dev:server:port": "bun --watch run --cwd packages/server src/cli.ts --port=3478",
     "dev:web": "bun run --cwd packages/web dev",
-    "dev:all": "echo 'Run dev:server and dev:web in separate terminals'",
+    "dev:all": "bun run --parallel dev:server dev:web",
     "dev:watch": "turbo dev",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",

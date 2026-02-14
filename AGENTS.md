@@ -126,6 +126,9 @@ bun run dev:server
 # 启动 Web 前端开发模式（默认端口 3000）
 bun run dev:web
 
+# 同时启动服务器和 Web 前端（推荐）
+bun run dev:all
+
 # 在指定端口启动服务器
 bun run dev:server:port          # 端口 3478
 bun run --cwd packages/server dev:8080    # 端口 8080
