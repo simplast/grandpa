@@ -1,12 +1,20 @@
-import type { ChatResponse, StatusResponse } from "@grandpa/server";
+import type { StatusResponse } from "@grandpa/server";
+
+export interface UIMessage {
+  id: string;
+  role: "user" | "assistant";
+  parts: Array<{ type: "text"; text: string }>;
+  createdAt?: Date;
+}
 
 export interface SessionHistoryResponse {
   sessionID: string;
-  messages: Array<{
-    role: "user" | "assistant";
-    content: string;
-    timestamp: string;
-  }>;
+  messages: UIMessage[];
+}
+
+export interface ChatResponse {
+  date: string;
+  status: string;
 }
 
 export class HttpClient {
@@ -16,20 +24,31 @@ export class HttpClient {
     this.baseUrl = `http://localhost:${port}`;
   }
 
-  async sendMessage(message: string): Promise<ChatResponse> {
+  async sendMessage(message: string, sessionId?: string): Promise<ChatResponse> {
+    const id = sessionId || new Date().toISOString().substring(0, 10);
+    
+    // Send in the new format: { message: UIMessage, id: string }
     const response = await fetch(`${this.baseUrl}/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({
+        message: {
+          role: "user",
+          parts: [{ type: "text", text: message }],
+        },
+        id,
+      }),
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
     }
 
-    return response.json() as Promise<ChatResponse>;
+    // The /chat endpoint returns a stream, so we just return the session info
+    return { date: id, status: "processing" };
   }
 
   async getStatus(date: string): Promise<StatusResponse> {

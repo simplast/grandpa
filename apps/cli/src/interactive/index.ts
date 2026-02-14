@@ -28,9 +28,12 @@ export async function startInteractiveMode() {
   const client = new HttpClient(serverConfig.port);
   const input = new InteractiveInput();
 
+  // Get today's session ID
+  const today = new Date().toISOString().split("T")[0];
+
   // Display welcome
   console.log("\n🤖 Grandpa Assistant Ready");
-  console.log("   Today's session: " + new Date().toISOString().split("T")[0]);
+  console.log("   Today's session: " + today);
   console.log("   Type your message and press Enter to send.");
   console.log("   Press Shift+Enter for a new line.");
   console.log("   Type 'exit' to quit.\n");
@@ -43,16 +46,14 @@ export async function startInteractiveMode() {
       if (!message) continue;
 
       try {
-        // Send message and get immediate response
-        const response = await client.sendMessage(message);
-
         // Show user message
         console.log(`\n👤 You: ${message}`);
-
-        // Wait for AI response to be processed
         console.log(`\n⏳ Processing...`);
 
-        // Poll for completion
+        // Send message - this triggers streaming to the server
+        await client.sendMessage(message, today);
+
+        // Wait for AI response to be saved to history
         let maxAttempts = 60; // 60 seconds timeout
         let aiResponse = "";
 
@@ -60,14 +61,23 @@ export async function startInteractiveMode() {
           await new Promise(resolve => setTimeout(resolve, 1000));
 
           try {
-            const status = await client.getStatus(response.date);
-            if (status.status === "done") {
-              // Get the full session history to find AI response
-              const session = await client.getSessionHistory(response.date);
-              const lastMessage = session.messages[session.messages.length - 1];
-
-              if (lastMessage && lastMessage.role === "assistant") {
-                aiResponse = lastMessage.content;
+            // Get the full session history to find AI response
+            const session = await client.getSessionHistory(today);
+            const messages = session.messages;
+            
+            // Find the last assistant message
+            const assistantMessages = messages.filter(m => m.role === "assistant");
+            
+            if (assistantMessages.length > 0) {
+              const lastAssistant = assistantMessages[assistantMessages.length - 1];
+              // Extract text from parts array
+              const content = lastAssistant.parts
+                ?.filter(p => p.type === "text")
+                .map(p => p.text)
+                .join('');
+              
+              if (content) {
+                aiResponse = content;
                 break;
               }
             }
@@ -81,7 +91,7 @@ export async function startInteractiveMode() {
         if (aiResponse) {
           console.log(`\n🤖 Assistant: ${aiResponse}\n`);
         } else {
-          console.log(`\n⚠️  AI response not received yet. Check history with: grandpa history --date ${response.date}\n`);
+          console.log(`\n⚠️  AI response not received yet. Check history with: grandpa history --date ${today}\n`);
         }
 
       } catch (error: any) {
