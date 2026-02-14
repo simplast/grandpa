@@ -103,14 +103,55 @@ export function createRouter(historyManager: HistoryManager) {
     }
   });
 
+  // 获取所有会话列表（带预览）
+  router.get("/sessions", async (c) => {
+    const dates = await historyManager.getAllDates();
+    
+    // 只保留有效的日期格式 (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    const validDates = dates.filter((date) => dateRegex.test(date));
+    
+    const sessions = await Promise.all(
+      validDates.map(async (date) => {
+        const session = await historyManager.loadSession(date);
+        const firstUserMessage = session.messages.find(
+          (m) => m.role === "user"
+        );
+        return {
+          id: date,
+          date,
+          messageCount: session.messages.length,
+          preview: firstUserMessage?.content?.substring(0, 50) || "Empty chat",
+          lastMessage:
+            session.messages.length > 0
+              ? session.messages[session.messages.length - 1].timestamp
+              : null,
+        };
+      })
+    );
+
+    // 按日期倒序排列（最新的在前）
+    return c.json({
+      sessions: sessions.sort((a, b) => (a.date > b.date ? -1 : 1)),
+    });
+  });
+
   // 获取会话历史
   router.get("/session/:sessionID/history", async (c) => {
     const sessionID = c.req.param("sessionID");
     const session = await historyManager.loadSession(sessionID);
 
+    // 转换为 Vercel AI SDK UIMessage 格式
+    const uiMessages = session.messages.map((msg) => ({
+      id: `${sessionID}-${msg.timestamp}`,
+      role: msg.role,
+      parts: [{ type: "text", text: msg.content }],
+      createdAt: new Date(msg.timestamp),
+    }));
+
     return c.json({
       sessionID,
-      messages: session.messages,
+      messages: uiMessages,
     });
   });
 
@@ -127,14 +168,51 @@ export function createRouter(historyManager: HistoryManager) {
 
   // Vercel AI SDK 兼容端点: POST /chat
   // 适配 useChat hook 的 DefaultChatTransport
+  // 支持两种格式：
+  // 1. { messages: UIMessage[] } - 完整消息数组（旧格式）
+  // 2. { message: UIMessage, id: string } - 单条消息 + 会话ID（新格式，服务端加载历史）
   router.post("/chat", async (c) => {
-    const { messages } = await c.req.json();
+    const body = await c.req.json();
+    let messages: any[];
 
-    console.log("[Chat] Received messages:", JSON.stringify(messages, null, 2));
+    // 检查是新格式还是旧格式
+    if (body.message && body.id) {
+      // 新格式：单条消息 + 会话ID，从存储加载历史
+      const { message, id } = body;
+      console.log("[Chat] Received single message for session:", id);
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      // 加载历史消息
+      const session = await historyManager.loadSession(id);
+      const historyMessages = session.messages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+      // 转换新消息格式
+      let newMessageContent = '';
+      if (message.content !== undefined) {
+        newMessageContent = message.content;
+      } else if (message.parts && Array.isArray(message.parts)) {
+        newMessageContent = message.parts
+          .filter((part: any) => part.type === 'text')
+          .map((part: any) => part.text)
+          .join('');
+      }
+
+      // 合并历史和新消息
+      messages = [...historyMessages, {
+        role: message.role,
+        content: newMessageContent,
+      }];
+    } else if (body.messages && Array.isArray(body.messages)) {
+      // 旧格式：完整消息数组
+      messages = body.messages;
+      console.log("[Chat] Received messages array:", messages.length, "messages");
+    } else {
       return c.json({ error: "Messages are required" }, 400);
     }
+
+    console.log("[Chat] Processing messages:", messages.length);
 
     // 转换消息格式，确保每条消息都有 content 字段
     const formattedMessages = messages.map((msg: any) => {
@@ -167,6 +245,9 @@ export function createRouter(historyManager: HistoryManager) {
 
     console.log("[Chat] Formatted messages:", JSON.stringify(formattedMessages, null, 2));
 
+    // 获取会话ID（用于保存历史）
+    const sessionId = body.id || getTodayDate();
+
     // 使用 Vercel AI SDK 的 streamText，从配置中获取 API 信息
     // 使用 .chat() 强制使用传统的 chat/completions 端点
     // 小米 API 使用 api-key header 而不是 Authorization
@@ -182,7 +263,29 @@ export function createRouter(historyManager: HistoryManager) {
     });
 
     // 返回 Vercel AI SDK 兼容的 UI 消息流响应
-    return result.toUIMessageStreamResponse();
+    // onFinish 保存用户消息和 AI 回复到历史
+    return result.toUIMessageStreamResponse({
+      onFinish: async ({ messages: uiMessages }) => {
+        try {
+          // 将 UIMessage 转换并保存到历史
+          for (const msg of uiMessages) {
+            const content = msg.parts
+              ?.filter((p: any) => p.type === 'text')
+              .map((p: any) => p.text)
+              .join('') || '';
+            
+            await historyManager.appendMessage({
+              role: msg.role as 'user' | 'assistant',
+              content,
+              timestamp: new Date().toISOString(),
+            }, sessionId);
+          }
+          console.log(`[Chat] Saved ${uiMessages.length} messages to session ${sessionId}`);
+        } catch (error) {
+          console.error("[Chat] Failed to save messages:", error);
+        }
+      },
+    });
   });
 
   return router;
