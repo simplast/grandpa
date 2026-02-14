@@ -248,6 +248,17 @@ export function createRouter(historyManager: HistoryManager) {
     // 获取会话ID（用于保存历史）
     const sessionId = body.id || getTodayDate();
 
+    // 保存用户消息（在调用 LLM 之前）
+    if (body.message && body.id) {
+      // 新格式：保存用户消息
+      const userContent = formattedMessages[formattedMessages.length - 1].content;
+      await historyManager.appendMessage({
+        role: 'user',
+        content: userContent,
+        timestamp: new Date().toISOString(),
+      }, sessionId);
+    }
+
     // 使用 Vercel AI SDK 的 streamText，从配置中获取 API 信息
     // 使用 .chat() 强制使用传统的 chat/completions 端点
     // 小米 API 使用 api-key header 而不是 Authorization
@@ -263,24 +274,26 @@ export function createRouter(historyManager: HistoryManager) {
     });
 
     // 返回 Vercel AI SDK 兼容的 UI 消息流响应
-    // onFinish 保存用户消息和 AI 回复到历史
+    // onFinish 只保存 AI 回复（用户消息已在上面保存）
     return result.toUIMessageStreamResponse({
       onFinish: async ({ messages: uiMessages }) => {
         try {
-          // 将 UIMessage 转换并保存到历史
+          // 只保存 AI 响应（用户消息已在调用前保存）
           for (const msg of uiMessages) {
+            if (msg.role !== 'assistant') continue;
+            
             const content = msg.parts
               ?.filter((p: any) => p.type === 'text')
               .map((p: any) => p.text)
               .join('') || '';
             
             await historyManager.appendMessage({
-              role: msg.role as 'user' | 'assistant',
+              role: 'assistant',
               content,
               timestamp: new Date().toISOString(),
             }, sessionId);
           }
-          console.log(`[Chat] Saved ${uiMessages.length} messages to session ${sessionId}`);
+          console.log(`[Chat] Saved AI response to session ${sessionId}`);
         } catch (error) {
           console.error("[Chat] Failed to save messages:", error);
         }
