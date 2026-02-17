@@ -20,6 +20,12 @@ bun run dev
 # Start server in watch mode (default port 3478)
 bun run dev:server
 
+# Start web frontend development mode
+bun run dev:web
+
+# Start both server and web frontend concurrently (recommended)
+bun run dev:all
+
 # Start server on specific port
 bun run dev:server:port          # Port 3478
 bun run --cwd packages/server dev:8080    # Port 8080
@@ -91,9 +97,10 @@ grandpa/
 │   ├── core/                   # Command runner, logger, spinner, types
 │   ├── config/                 # Config management with Zod validation
 │   ├── ai/                     # AI service and history management
-│   └── server/                 # HTTP server (Hono) with SSE support
+│   └── server/                 # HTTP server (Hono) with Vercel AI SDK
 ├── apps/
 │   └── cli/                    # CLI application entry point
+├── web/                        # React web chat interface (Vite + React)
 └── Configuration files
 ```
 
@@ -192,6 +199,12 @@ packages/server/
 packages/ai/
 ├── @grandpa/config (workspace)
 └── OpenAI SDK (external)
+
+web/
+├── @ai-sdk/react (external)
+├── react-markdown (external)
+├── remark-gfm (external)
+└── Vite proxy to server
 ```
 
 ## Important Development Patterns
@@ -234,16 +247,18 @@ Config values are resolved in this order (highest to lowest priority):
 
 - **Port**: Default 3478, configurable via `--port=` argument
 - **Endpoints**:
-  - `POST /chat` - Send message, returns immediately, processes async (legacy endpoint)
-  - `POST /session/:sessionID/message` - Stream response (new endpoint)
-  - `POST /session/:sessionID/message/non-stream` - Non-stream response (new endpoint)
-  - `GET /session/:sessionID/history` - Get session history
-  - `GET /status/:date` - Check processing status (legacy endpoint)
+  - `POST /chat` - Send message with streaming response using Vercel AI SDK. Supports two formats:
+    - `{ messages: UIMessage[] }` - Full message array
+    - `{ message: UIMessage, id: string }` - Single message + session ID (server loads history)
+  - `GET /sessions` - Get all sessions list with preview information
+  - `GET /session/:sessionID/history` - Get session history (returns UIMessage format)
   - `GET /health` - Health check
   - `DELETE /session/:sessionID` - Clear session
-- **Background Processing**: Uses `processingQueue` Map to track async AI responses (legacy endpoint)
+- **AI Integration**: Uses Vercel AI SDK's `streamText` and `createOpenAI` for streaming responses
+- **OpenAI Compatible**: Supports OpenAI-compatible API providers (e.g., Xiaomi MiMo API)
+- **Streaming**: Uses `toUIMessageStreamResponse()` to return UI message streams
 - **History**: Messages saved to `~/.config/grandpa-cli/history/` by date (YYYY-MM-DD)
-- **Message Saving**: Each message (user + AI response) is saved exactly once by `SessionPrompt.prompt()`
+- **Message Saving**: `POST /chat` endpoint uses `onFinish` callback to save messages
 
 ### 5. **CLI Architecture Details**
 
@@ -298,6 +313,19 @@ Config values are resolved in this order (highest to lowest priority):
 - `packages/server/src/session.ts` - SessionPrompt class for handling prompts and message saving
 - `packages/server/src/llm.ts` - SessionLLM class for LLM interaction
 - `packages/ai/src/history-manager.ts` - Message persistence
+
+### Web UI
+
+- `web/src/App.tsx` - Main application component with chat interface and sidebar
+- `web/src/App.css` - Styles including Markdown rendering styles
+- `web/vite.config.ts` - Vite configuration with proxy to server
+
+**Web UI Features**:
+- **History Sidebar**: Collapsible sidebar showing all sessions with preview
+- **Session Switching**: Click history items to load different sessions
+- **Markdown Support**: Full GFM support (tables, code highlighting, lists)
+- **Responsive Design**: Mobile-friendly layout
+- **Performance**: Only sends last message, server loads full history
 
 ## Common Development Scenarios
 

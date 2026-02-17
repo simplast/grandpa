@@ -173,6 +173,9 @@ bun run dev:server
 # Start web frontend development mode
 bun run dev:web
 
+# Start both server and web frontend concurrently (recommended)
+bun run dev:all
+
 # Run tests
 bun run test
 
