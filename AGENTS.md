@@ -22,24 +22,24 @@
 
 ## 技术栈
 
-| 工具 | 用途 |
-|------|------|
-| **Bun** | 包管理器和运行时 |
-| **TypeScript** | 类型安全 |
-| **Turborepo** | Monorepo 构建系统 |
-| **Commander** | CLI 框架 |
-| **Inquirer** | 交互式提示 |
-| **Zod** | 模式验证 |
-| **Chalk** | 终端样式 |
-| **Ora** | 加载动画和进度 |
-| **Hono** | HTTP 服务器框架 |
-| **Vite** | Web 前端构建工具 |
-| **React** | Web 前端框架 |
-| **Vercel AI SDK** | AI 集成和流式响应 |
-| **@ai-sdk/openai** | OpenAI 兼容 API 提供商 |
-| **@ai-sdk/react** | React AI 集成 |
-| **react-markdown** | Markdown 渲染 |
-| **remark-gfm** | GitHub Flavored Markdown 支持 |
+| 工具               | 用途                          |
+| ------------------ | ----------------------------- |
+| **Bun**            | 包管理器和运行时              |
+| **TypeScript**     | 类型安全                      |
+| **Turborepo**      | Monorepo 构建系统             |
+| **Commander**      | CLI 框架                      |
+| **Inquirer**       | 交互式提示                    |
+| **Zod**            | 模式验证                      |
+| **Chalk**          | 终端样式                      |
+| **Ora**            | 加载动画和进度                |
+| **Hono**           | HTTP 服务器框架               |
+| **Vite**           | Web 前端构建工具              |
+| **React**          | Web 前端框架                  |
+| **Vercel AI SDK**  | AI 集成和流式响应             |
+| **@ai-sdk/openai** | OpenAI 兼容 API 提供商        |
+| **@ai-sdk/react**  | React AI 集成                 |
+| **react-markdown** | Markdown 渲染                 |
+| **remark-gfm**     | GitHub Flavored Markdown 支持 |
 
 ## 项目结构
 
@@ -83,26 +83,25 @@ grandpa/
 │   │       ├── ai-service.ts   # AI 服务
 │   │       ├── history-manager.ts  # 历史记录管理
 │   │       └── types.ts        # 类型定义
-│   └── server/                 # HTTP 服务器
-│       └── src/
-│           ├── index.ts        # 导出
-│           ├── cli.ts          # 服务器 CLI 入口
-│           ├── server.ts       # 服务器主类
-│           ├── router.ts       # 路由定义
-│           ├── session.ts      # 会话处理
-│           ├── llm.ts          # LLM 交互
-│           ├── provider.ts     # 提供商配置
-│           ├── types.ts        # 类型定义
-│           └── routes/         # 路由目录
-└── web/                        # Web 聊天界面
-    ├── src/
-    │   ├── App.tsx            # 主应用组件
-    │   ├── App.css            # 样式文件
-    │   ├── main.tsx           # 入口文件
-    │   └── index.css          # 全局样式
-    ├── package.json
-    ├── vite.config.ts         # Vite 配置
-    └── tsconfig.json
+│   ├── server/                 # HTTP 服务器
+│   │   └── src/
+│   │       ├── index.ts        # 导出
+│   │       ├── cli.ts          # 服务器 CLI 入口
+│   │       ├── server.ts       # 服务器主类
+│   │       ├── router.ts       # 路由定义
+│   │       ├── session.ts      # 会话处理
+│   │       ├── llm.ts          # LLM 交互
+│   │       ├── provider.ts     # 提供商配置
+│   │       └── types.ts        # 类型定义
+│   └── web/                    # Web 聊天界面
+│       ├── src/
+│       │   ├── App.tsx         # 主应用组件
+│       │   ├── App.css         # 样式文件
+│       │   ├── main.tsx        # 入口文件
+│       │   └── index.css       # 全局样式
+│       ├── package.json
+│       ├── vite.config.ts      # Vite 配置
+│       └── tsconfig.json
 ├── turbo.json                  # Turborepo 配置
 ├── bunfig.toml                 # Bun 配置
 ├── tsconfig.json               # TypeScript 配置
@@ -211,6 +210,7 @@ curl http://localhost:3478/health
 **流程**: HTTP 请求 → GrandpaServer → SessionPrompt → SessionLLM → HistoryManager → 响应
 
 **消息保存流程**:
+
 - 用户消息由 `SessionPrompt.prompt()` 在调用 LLM 之前保存
 - AI 响应在 LLM 完成后由 `SessionPrompt.prompt()` 保存
 - 每次交互用户和助手消息各保存一次
@@ -306,6 +306,7 @@ import { AIService } from "@grandpa/ai"; // → packages/ai/src/index.ts
 ```
 
 **配置**:
+
 - 根目录 `tsconfig.json`: 定义 `@grandpa/*` 路径
 - 包 `tsconfig.json`: 扩展根配置，添加包特定路径
 - 包 `package.json`: `exports` 字段映射到源文件
@@ -333,6 +334,14 @@ import { AIService } from "@grandpa/ai"; // → packages/ai/src/index.ts
   - `GET /status/:date` - 检查处理状态（旧版端点）
   - `GET /health` - 健康检查
   - `DELETE /session/:sessionID` - 清除会话
+  - **静默模式端点**:
+    - `POST /silent/session` - 创建静默会话（不立即调用 LLM）
+    - `POST /silent/message` - 存储消息（不调用 LLM）
+    - `GET /silent/session/:sessionId` - 获取静默会话详情
+    - `GET /silent/sessions` - 列出所有静默会话
+    - `POST /silent/process` - 批量处理待处理消息
+    - `DELETE /silent/session/:sessionId/message/:messageId` - 删除特定消息
+    - `DELETE /silent/session/:sessionId` - 删除整个静默会话
 - **AI 集成**: 使用 Vercel AI SDK 的 `streamText` 和 `createOpenAI`
 - **OpenAI 兼容**: 支持小米 MiMo API 等兼容 OpenAI 格式的提供商
 - **流式响应**: 使用 `toUIMessageStreamResponse()` 返回 UI 消息流
@@ -403,6 +412,7 @@ import { AIService } from "@grandpa/ai"; // → packages/ai/src/index.ts
 - `packages/web/vite.config.ts` - Vite 配置，代理到服务器
 
 **Web UI 特性**:
+
 - **历史侧边栏**: 可折叠，显示所有会话及预览
 - **会话切换**: 点击历史记录加载对应会话
 - **Markdown 支持**: GFM 表格、代码高亮、列表等
@@ -415,46 +425,58 @@ import { AIService } from "@grandpa/ai"; // → packages/ai/src/index.ts
 // packages/config/src/schema.ts
 export const configSchema = z.object({
   // CLI 配置
-  cli: z.object({
-    theme: z.enum(["light", "dark", "auto"]).default("auto"),
-    verbose: z.boolean().default(false),
-    color: z.boolean().default(true),
-  }).default({}),
+  cli: z
+    .object({
+      theme: z.enum(["light", "dark", "auto"]).default("auto"),
+      verbose: z.boolean().default(false),
+      color: z.boolean().default(true),
+    })
+    .default({}),
 
   // AI 配置
-  ai: z.object({
-    provider: z.enum(["openai", "custom"]).default("custom"),
-    model: z.string().default("gpt-4"),
-    baseUrl: z.string().url().default("https://api.xiaomimimo.com/v1"),
-    apiKey: z.string().default("sk-..."),
-    temperature: z.number().min(0).max(2).default(0.7),
-    maxTokens: z.number().positive().default(1000),
-  }).default({}),
+  ai: z
+    .object({
+      provider: z.enum(["openai", "custom"]).default("custom"),
+      model: z.string().default("gpt-4"),
+      baseUrl: z.string().url().default("https://api.xiaomimimo.com/v1"),
+      apiKey: z.string().default("sk-..."), // 从环境变量 OPENAI_API_KEY 加载
+      temperature: z.number().min(0).max(2).default(0.7),
+      maxTokens: z.number().positive().default(1000),
+    })
+    .default({}),
 
   // 服务器配置
-  server: z.object({
-    port: z.number().default(3478),
-  }).default({}),
+  server: z
+    .object({
+      port: z.number().default(3478),
+    })
+    .default({}),
 
   // API 配置（旧版）
-  api: z.object({
-    baseUrl: z.string().url().default("https://api.example.com"),
-    timeout: z.number().positive().default(30000),
-    retries: z.number().nonnegative().default(3),
-  }).default({}),
+  api: z
+    .object({
+      baseUrl: z.string().url().default("https://api.example.com"),
+      timeout: z.number().positive().default(30000),
+      retries: z.number().nonnegative().default(3),
+    })
+    .default({}),
 
   // 用户偏好
-  user: z.object({
-    name: z.string().optional(),
-    email: z.string().email().optional(),
-    preferences: z.record(z.unknown()).default({}),
-  }).default({}),
+  user: z
+    .object({
+      name: z.string().optional(),
+      email: z.string().email().optional(),
+      preferences: z.record(z.unknown()).default({}),
+    })
+    .default({}),
 
   // 功能标志
-  features: z.object({
-    experimental: z.boolean().default(false),
-    beta: z.boolean().default(false),
-  }).default({}),
+  features: z
+    .object({
+      experimental: z.boolean().default(false),
+      beta: z.boolean().default(false),
+    })
+    .default({}),
 });
 ```
 
@@ -500,6 +522,27 @@ grandpa history --clear 2026-01-20
 2. 使用 `historyManager.appendMessage()` 保存消息
 3. 对于 AI 响应，使用处理消息保存的 `SessionPrompt.prompt()`
 4. 返回适当的 JSON 响应
+
+### 静默模式 (Silent Mode)
+
+静默模式允许用户存储消息而不立即调用 LLM，适合批量处理场景：
+
+**工作流程**:
+
+1. `POST /silent/session` - 创建静默会话
+2. `POST /silent/message` - 存储多条消息（不调用 LLM）
+3. `POST /silent/process` - 批量处理所有待处理消息
+
+**消息合并策略**:
+
+- `concatenate` - 合并所有消息为一个上下文（默认）
+- `separate` - 每条消息独立处理
+
+**使用场景**:
+
+- 收集多个问题后一次性处理
+- 离线收集信息，稍后批量处理
+- 批量任务队列
 
 ### 更新配置模式
 

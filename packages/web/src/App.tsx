@@ -21,6 +21,24 @@ interface SessionInfo {
   lastMessage: string | null;
 }
 
+interface SilentSessionInfo {
+  id: string;
+  messageCount: number;
+  pendingCount: number;
+  createdAt: string;
+  lastUpdated: string;
+}
+
+interface SilentMessageItem {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+  status?: "pending" | "processed"; // Only for user messages
+}
+
+type ChatMode = "realtime" | "silent";
+
 function App() {
   const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
     const today = new Date().toISOString().substring(0, 10);
@@ -30,12 +48,17 @@ function App() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  const {
-    messages,
-    sendMessage,
-    status,
-    setMessages,
-  } = useChat({
+  // Silent mode state
+  const [chatMode, setChatMode] = useState<ChatMode>("realtime");
+  const [silentSessions, setSilentSessions] = useState<SilentSessionInfo[]>([]);
+  const [currentSilentSessionId, setCurrentSilentSessionId] = useState<
+    string | null
+  >(null);
+  const [silentMessages, setSilentMessages] = useState<SilentMessageItem[]>([]);
+  const [showNewChatDropdown, setShowNewChatDropdown] = useState(false);
+
+  // Real-time chat hook
+  const { messages, sendMessage, status, setMessages } = useChat({
     id: currentSessionId,
     transport: new DefaultChatTransport({
       api: "/api/chat",
@@ -44,6 +67,40 @@ function App() {
         return { body: { message: messages[messages.length - 1], id } };
       },
     }),
+  });
+
+  // Silent mode processing hook - uses ref to get current session ID
+  const silentSessionIdRef = useRef<string | null>(null);
+  silentSessionIdRef.current = currentSilentSessionId;
+
+  const {
+    messages: silentAiMessages,
+    sendMessage: sendSilentProcess,
+    status: silentStatus,
+    setMessages: setSilentAiMessages,
+  } = useChat({
+    id: `silent-process`,
+    transport: new DefaultChatTransport({
+      api: "/api/silent/process",
+      prepareSendMessagesRequest() {
+        // Send sessionId in body - the message content is ignored
+        return {
+          body: {
+            sessionId: silentSessionIdRef.current,
+            mergeStrategy: "concatenate",
+          },
+        };
+      },
+    }),
+    onFinish: async () => {
+      // Clear streaming messages first
+      setSilentAiMessages([]);
+      // Reload the session after processing completes
+      if (silentSessionIdRef.current) {
+        await loadSilentSession(silentSessionIdRef.current);
+        fetchSilentSessions();
+      }
+    },
   });
 
   const [input, setInput] = useState("");
@@ -60,34 +117,68 @@ function App() {
     }
   }, []);
 
+  // Fetch silent sessions
+  const fetchSilentSessions = useCallback(async () => {
+    try {
+      const response = await fetch("/api/silent/sessions");
+      const data = await response.json();
+      setSilentSessions(data.sessions || []);
+    } catch (error) {
+      console.error("Failed to fetch silent sessions:", error);
+    }
+  }, []);
+
   // Load session history
-  const loadSessionHistory = useCallback(async (sessionId: string) => {
+  const loadSessionHistory = useCallback(
+    async (sessionId: string) => {
+      setIsLoadingHistory(true);
+      try {
+        const response = await fetch(`/api/session/${sessionId}/history`);
+        const data = await response.json();
+
+        // Convert to UIMessage format if needed
+        const uiMessages: UIMessage[] = (data.messages || []).map(
+          (msg: any) => ({
+            id: msg.id || `${sessionId}-${Date.now()}-${Math.random()}`,
+            role: msg.role,
+            parts: msg.parts || [{ type: "text", text: msg.content }],
+            createdAt: msg.createdAt ? new Date(msg.createdAt) : new Date(),
+          }),
+        );
+
+        setMessages(uiMessages);
+      } catch (error) {
+        console.error("Failed to load session history:", error);
+        setMessages([]);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    },
+    [setMessages],
+  );
+
+  // Load silent session messages
+  const loadSilentSession = useCallback(async (sessionId: string) => {
     setIsLoadingHistory(true);
     try {
-      const response = await fetch(`/api/session/${sessionId}/history`);
+      const response = await fetch(`/api/silent/session/${sessionId}`);
       const data = await response.json();
-      
-      // Convert to UIMessage format if needed
-      const uiMessages: UIMessage[] = (data.messages || []).map((msg: any) => ({
-        id: msg.id || `${sessionId}-${Date.now()}-${Math.random()}`,
-        role: msg.role,
-        parts: msg.parts || [{ type: "text", text: msg.content }],
-        createdAt: msg.createdAt ? new Date(msg.createdAt) : new Date(),
-      }));
-      
-      setMessages(uiMessages);
+      if (data.success && data.session) {
+        setSilentMessages(data.session.messages || []);
+      }
     } catch (error) {
-      console.error("Failed to load session history:", error);
-      setMessages([]);
+      console.error("Failed to load silent session:", error);
+      setSilentMessages([]);
     } finally {
       setIsLoadingHistory(false);
     }
-  }, [setMessages]);
+  }, []);
 
   // Load sessions on mount
   useEffect(() => {
     fetchSessions();
-  }, [fetchSessions]);
+    fetchSilentSessions();
+  }, [fetchSessions, fetchSilentSessions]);
 
   // Refresh sessions when messages change (new session created)
   useEffect(() => {
@@ -102,19 +193,145 @@ function App() {
       chatContainerRef.current.scrollTop =
         chatContainerRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, silentMessages]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (showNewChatDropdown) {
+        setShowNewChatDropdown(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [showNewChatDropdown]);
 
   // Switch session
   const handleSessionSwitch = async (sessionId: string) => {
     setCurrentSessionId(sessionId);
+    setChatMode("realtime");
+    setCurrentSilentSessionId(null);
+    setSilentMessages([]);
+    setSilentAiMessages([]);
     await loadSessionHistory(sessionId);
   };
 
-  // Create new session (today's date)
-  const handleNewChat = () => {
+  // Switch to silent session
+  const handleSilentSessionSwitch = async (sessionId: string) => {
+    setCurrentSilentSessionId(sessionId);
+    setChatMode("silent");
+    setCurrentSessionId("");
+    setMessages([]);
+    setSilentAiMessages([]);
+    await loadSilentSession(sessionId);
+  };
+
+  // Create new real-time session
+  const handleNewRealtimeChat = () => {
     const today = new Date().toISOString().substring(0, 10);
     setCurrentSessionId(today);
+    setChatMode("realtime");
+    setCurrentSilentSessionId(null);
+    setSilentMessages([]);
     setMessages([]);
+    setSilentAiMessages([]);
+    setShowNewChatDropdown(false);
+  };
+
+  // Create new silent session
+  const handleNewSilentChat = async () => {
+    try {
+      const response = await fetch("/api/silent/session", {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (data.success) {
+        setCurrentSilentSessionId(data.sessionId);
+        setChatMode("silent");
+        setCurrentSessionId("");
+        setMessages([]);
+        setSilentMessages([]);
+        setSilentAiMessages([]);
+        fetchSilentSessions();
+      }
+    } catch (error) {
+      console.error("Failed to create silent session:", error);
+    }
+    setShowNewChatDropdown(false);
+  };
+
+  // Add message to silent session
+  const handleSilentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || !currentSilentSessionId) return;
+
+    try {
+      const response = await fetch("/api/silent/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: input,
+          sessionId: currentSilentSessionId,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSilentMessages((prev) => [
+          ...prev,
+          {
+            id: data.messageId,
+            role: "user" as const,
+            content: input,
+            timestamp: data.timestamp,
+            status: "pending",
+          },
+        ]);
+        setInput("");
+        fetchSilentSessions();
+      }
+    } catch (error) {
+      console.error("Failed to add silent message:", error);
+    }
+  };
+
+  // Process all pending messages using useChat hook
+  const handleProcessMessages = async () => {
+    if (!currentSilentSessionId) return;
+    // Clear previous AI messages
+    setSilentAiMessages([]);
+    // Trigger the silent process - the useChat hook will handle streaming
+    await sendSilentProcess({ text: "" });
+  };
+
+  // Delete silent message
+  const handleDeleteSilentMessage = async (messageId: string) => {
+    if (!currentSilentSessionId) return;
+
+    try {
+      await fetch(
+        `/api/silent/session/${currentSilentSessionId}/message/${messageId}`,
+        { method: "DELETE" },
+      );
+      setSilentMessages((prev) => prev.filter((m) => m.id !== messageId));
+      fetchSilentSessions();
+    } catch (error) {
+      console.error("Failed to delete message:", error);
+    }
+  };
+
+  // Delete silent session
+  const handleDeleteSilentSession = async (sessionId: string) => {
+    try {
+      await fetch(`/api/silent/session/${sessionId}`, { method: "DELETE" });
+      if (currentSilentSessionId === sessionId) {
+        setCurrentSilentSessionId(null);
+        setSilentMessages([]);
+        setChatMode("realtime");
+      }
+      fetchSilentSessions();
+    } catch (error) {
+      console.error("Failed to delete silent session:", error);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,6 +360,20 @@ function App() {
     });
   };
 
+  const formatDateTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const pendingCount = silentMessages.filter(
+    (m) => m.status === "pending",
+  ).length;
+
   return (
     <div className="app-container">
       {/* Sidebar */}
@@ -158,30 +389,111 @@ function App() {
           </button>
         </div>
 
-        <button className="new-chat-btn" onClick={handleNewChat}>
-          + New Chat
-        </button>
-
-        <div className="session-list">
-          {sessions.length === 0 ? (
-            <div className="no-sessions">No chat history yet</div>
-          ) : (
-            sessions.map((session) => (
-              <div
-                key={session.id}
-                className={`session-item ${
-                  session.id === currentSessionId ? "active" : ""
-                }`}
-                onClick={() => handleSessionSwitch(session.id)}
-              >
-                <div className="session-date">{formatDate(session.date)}</div>
-                <div className="session-preview">{session.preview}</div>
-                <div className="session-meta">
-                  {session.messageCount} messages
-                </div>
-              </div>
-            ))
+        {/* New Chat Dropdown */}
+        <div className="new-chat-container">
+          <button
+            className="new-chat-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowNewChatDropdown(!showNewChatDropdown);
+            }}
+          >
+            + New Chat ▼
+          </button>
+          {showNewChatDropdown && (
+            <div
+              className="new-chat-dropdown"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button className="dropdown-item" onClick={handleNewRealtimeChat}>
+                <span className="dropdown-icon">💬</span>
+                <span className="dropdown-text">
+                  <span className="dropdown-title">Real-time Chat</span>
+                  <span className="dropdown-desc">Instant AI responses</span>
+                </span>
+              </button>
+              <button className="dropdown-item" onClick={handleNewSilentChat}>
+                <span className="dropdown-icon">📝</span>
+                <span className="dropdown-text">
+                  <span className="dropdown-title">Silent Mode</span>
+                  <span className="dropdown-desc">Save & process later</span>
+                </span>
+              </button>
+            </div>
           )}
+        </div>
+
+        {/* Real-time Sessions */}
+        <div className="session-section">
+          <h3 className="section-title">Real-time Chats</h3>
+          <div className="session-list">
+            {sessions.length === 0 ? (
+              <div className="no-sessions">No chat history yet</div>
+            ) : (
+              sessions.map((session) => (
+                <div
+                  key={session.id}
+                  className={`session-item ${
+                    session.id === currentSessionId && chatMode === "realtime"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() => handleSessionSwitch(session.id)}
+                >
+                  <div className="session-date">{formatDate(session.date)}</div>
+                  <div className="session-preview">{session.preview}</div>
+                  <div className="session-meta">
+                    {session.messageCount} messages
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Silent Sessions */}
+        <div className="session-section">
+          <h3 className="section-title">Silent Sessions</h3>
+          <div className="session-list">
+            {silentSessions.length === 0 ? (
+              <div className="no-sessions">No silent sessions</div>
+            ) : (
+              silentSessions.map((session) => (
+                <div
+                  key={session.id}
+                  className={`session-item silent-session ${
+                    session.id === currentSilentSessionId &&
+                    chatMode === "silent"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() => handleSilentSessionSwitch(session.id)}
+                >
+                  <div className="session-date">
+                    {formatDateTime(session.createdAt)}
+                    {session.pendingCount > 0 && (
+                      <span className="pending-badge">
+                        {session.pendingCount}
+                      </span>
+                    )}
+                  </div>
+                  <div className="session-preview">
+                    {session.messageCount} messages saved
+                  </div>
+                  <button
+                    className="delete-session-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteSilentSession(session.id);
+                    }}
+                    title="Delete session"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </aside>
 
@@ -191,7 +503,11 @@ function App() {
           <header className="chat-header">
             <div className="header-content">
               <h1>🤖 Grandpa Chat</h1>
-              <p>AI Assistant with hot reload support</p>
+              <p>
+                {chatMode === "realtime"
+                  ? "Real-time AI Assistant"
+                  : "Silent Mode - Save & Process Later"}
+              </p>
             </div>
             {!isSidebarOpen && (
               <button
@@ -207,53 +523,200 @@ function App() {
             {isLoadingHistory ? (
               <div className="loading-state">
                 <div className="loading-spinner"></div>
-                <p>Loading chat history...</p>
+                <p>Loading...</p>
               </div>
-            ) : messages.length === 0 ? (
-              <div className="empty-state">
-                <p>Start a conversation by typing below...</p>
-              </div>
-            ) : (
-              messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`message ${
-                    message.role === "user" ? "user" : "assistant"
-                  }`}
-                >
-                  <div className="message-avatar">
-                    {message.role === "user" ? "👤" : "🤖"}
-                  </div>
-                  <div className="message-content">
-                    <div className="message-text">
-                      {message.parts?.map((part, index) =>
-                        part.type === "text" ? (
-                          message.role === "assistant" ? (
-                            <MemoizedMarkdown key={index} content={part.text} />
-                          ) : (
-                            <span key={index}>{part.text}</span>
-                          )
-                        ) : null
-                      )}
+            ) : chatMode === "realtime" ? (
+              // Real-time mode messages
+              messages.length === 0 ? (
+                <div className="empty-state">
+                  <p>Start a conversation by typing below...</p>
+                </div>
+              ) : (
+                messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`message ${
+                      message.role === "user" ? "user" : "assistant"
+                    }`}
+                  >
+                    <div className="message-avatar">
+                      {message.role === "user" ? "👤" : "🤖"}
+                    </div>
+                    <div className="message-content">
+                      <div className="message-text">
+                        {message.parts?.map((part, index) =>
+                          part.type === "text" ? (
+                            message.role === "assistant" ? (
+                              <MemoizedMarkdown
+                                key={index}
+                                content={part.text}
+                              />
+                            ) : (
+                              <span key={index}>{part.text}</span>
+                            )
+                          ) : null,
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                ))
+              )
+            ) : // Silent mode messages
+            silentMessages.length === 0 ? (
+              <div className="empty-state">
+                <p>Add messages to process later...</p>
+                <p className="hint">
+                  Messages will be saved without AI response
+                </p>
+              </div>
+            ) : (
+              <div className="silent-messages">
+                {silentMessages.map((message) => {
+                  if (message.role === "user") {
+                    return (
+                      <div
+                        key={message.id}
+                        className={`message user ${message.status || ""}`}
+                      >
+                        <div className="message-avatar">📝</div>
+                        <div className="message-content">
+                          <div className="message-text">{message.content}</div>
+                          <div className="message-status">
+                            <span className={`status-badge ${message.status}`}>
+                              {message.status}
+                            </span>
+                            <span className="message-time">
+                              {new Date(message.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                        </div>
+                        {message.status === "pending" && (
+                          <button
+                            className="delete-message-btn"
+                            onClick={() =>
+                              handleDeleteSilentMessage(message.id)
+                            }
+                            title="Remove message"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div
+                        key={message.id}
+                        className="message assistant silent-ai-response"
+                      >
+                        <div className="message-avatar">🤖</div>
+                        <div className="message-content">
+                          <div className="message-text">
+                            <MemoizedMarkdown content={message.content} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                })}
+
+                {/* Show typing indicator while processing */}
+                {silentStatus === "streaming" &&
+                  silentAiMessages.length === 0 && (
+                    <div className="message assistant silent-ai-response">
+                      <div className="message-avatar">🤖</div>
+                      <div className="message-content">
+                        <div className="message-text">
+                          <div className="typing-indicator">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                {/* Show streaming AI response during processing */}
+                {silentAiMessages
+                  .filter((msg) => {
+                    const hasText = msg.parts?.some(
+                      (part) => part.type === "text" && part.text.trim(),
+                    );
+                    return hasText;
+                  })
+                  .map((message) => (
+                    <div
+                      key={message.id}
+                      className="message assistant silent-ai-response streaming"
+                    >
+                      <div className="message-avatar">🤖</div>
+                      <div className="message-content">
+                        <div className="message-text">
+                          {message.parts?.map((part, index) =>
+                            part.type === "text" && part.text.trim() ? (
+                              <MemoizedMarkdown
+                                key={index}
+                                content={part.text}
+                              />
+                            ) : null,
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
             )}
           </div>
 
-          <form onSubmit={handleSubmit} className="input-form">
+          <form
+            onSubmit={
+              chatMode === "realtime" ? handleSubmit : handleSilentSubmit
+            }
+            className="input-form"
+          >
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message..."
+              placeholder={
+                chatMode === "realtime"
+                  ? "Type your message..."
+                  : "Add a task, idea, or note..."
+              }
               className="message-input"
-              disabled={status !== "ready"}
+              disabled={status !== "ready" && chatMode === "realtime"}
             />
-            <button type="submit" disabled={status !== "ready" || !input.trim()}>
-              Send
-            </button>
+            {chatMode === "realtime" ? (
+              <button
+                type="submit"
+                disabled={status !== "ready" || !input.trim()}
+              >
+                Send
+              </button>
+            ) : (
+              <>
+                <button type="submit" disabled={!input.trim()}>
+                  Save
+                </button>
+                {pendingCount > 0 && (
+                  <button
+                    type="button"
+                    className="process-btn"
+                    onClick={handleProcessMessages}
+                    disabled={
+                      silentStatus === "streaming" ||
+                      silentStatus === "submitted"
+                    }
+                  >
+                    {silentStatus === "streaming" ||
+                    silentStatus === "submitted"
+                      ? "Processing..."
+                      : `Process (${pendingCount})`}
+                  </button>
+                )}
+              </>
+            )}
           </form>
         </div>
       </main>

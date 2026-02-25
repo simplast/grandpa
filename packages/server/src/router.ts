@@ -16,8 +16,8 @@ export function createRouter(historyManager: HistoryManager) {
   const processingQueue = new Map<string, Promise<void>>();
 
   // 获取配置（使用 get 方法以支持环境变量覆盖）
-  const aiConfig = ConfigManager.getInstance().get('ai');
-  
+  const aiConfig = ConfigManager.getInstance().get("ai");
+
   console.log("[Config] AI Config:", JSON.stringify(aiConfig));
   console.log("[Config] API Key:", aiConfig?.apiKey);
   console.log("[Config] Base URL:", aiConfig?.baseUrl);
@@ -106,28 +106,29 @@ export function createRouter(historyManager: HistoryManager) {
   // 获取所有会话列表（带预览）
   router.get("/sessions", async (c) => {
     const dates = await historyManager.getAllDates();
-    
+
     // 只保留有效的日期格式 (YYYY-MM-DD)
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     const validDates = dates.filter((date) => dateRegex.test(date));
-    
+
     const sessions = await Promise.all(
       validDates.map(async (date) => {
         const session = await historyManager.loadSession(date);
         const firstUserMessage = session.messages.find(
-          (m) => m.role === "user"
+          (m) => m.role === "user",
         );
         return {
           id: date,
           date,
           messageCount: session.messages.length,
-          preview: firstUserMessage?.content?.substring(0, 50) || "Empty chat",
+          preview:
+            (firstUserMessage?.content || "").substring(0, 50) || "Empty chat",
           lastMessage:
             session.messages.length > 0
-              ? session.messages[session.messages.length - 1].timestamp
+              ? session.messages[session.messages.length - 1]?.timestamp || null
               : null,
         };
-      })
+      }),
     );
 
     // 按日期倒序排列（最新的在前）
@@ -189,25 +190,32 @@ export function createRouter(historyManager: HistoryManager) {
       }));
 
       // 转换新消息格式
-      let newMessageContent = '';
+      let newMessageContent = "";
       if (message.content !== undefined) {
         newMessageContent = message.content;
       } else if (message.parts && Array.isArray(message.parts)) {
         newMessageContent = message.parts
-          .filter((part: any) => part.type === 'text')
+          .filter((part: any) => part.type === "text")
           .map((part: any) => part.text)
-          .join('');
+          .join("");
       }
 
       // 合并历史和新消息
-      messages = [...historyMessages, {
-        role: message.role,
-        content: newMessageContent,
-      }];
+      messages = [
+        ...historyMessages,
+        {
+          role: message.role,
+          content: newMessageContent,
+        },
+      ];
     } else if (body.messages && Array.isArray(body.messages)) {
       // 旧格式：完整消息数组
       messages = body.messages;
-      console.log("[Chat] Received messages array:", messages.length, "messages");
+      console.log(
+        "[Chat] Received messages array:",
+        messages.length,
+        "messages",
+      );
     } else {
       return c.json({ error: "Messages are required" }, 400);
     }
@@ -227,9 +235,9 @@ export function createRouter(historyManager: HistoryManager) {
       // 如果消息有 parts 数组，从中提取 text 内容
       if (msg.parts && Array.isArray(msg.parts)) {
         const textParts = msg.parts
-          .filter((part: any) => part.type === 'text')
+          .filter((part: any) => part.type === "text")
           .map((part: any) => part.text)
-          .join('');
+          .join("");
         return {
           role: msg.role,
           content: textParts,
@@ -239,11 +247,14 @@ export function createRouter(historyManager: HistoryManager) {
       // 如果都没有，返回空字符串
       return {
         role: msg.role,
-        content: '',
+        content: "",
       };
     });
 
-    console.log("[Chat] Formatted messages:", JSON.stringify(formattedMessages, null, 2));
+    console.log(
+      "[Chat] Formatted messages:",
+      JSON.stringify(formattedMessages, null, 2),
+    );
 
     // 获取会话ID（用于保存历史）
     const sessionId = body.id || getTodayDate();
@@ -251,12 +262,16 @@ export function createRouter(historyManager: HistoryManager) {
     // 保存用户消息（在调用 LLM 之前）
     if (body.message && body.id) {
       // 新格式：保存用户消息
-      const userContent = formattedMessages[formattedMessages.length - 1].content;
-      await historyManager.appendMessage({
-        role: 'user',
-        content: userContent,
-        timestamp: new Date().toISOString(),
-      }, sessionId);
+      const userContent =
+        formattedMessages[formattedMessages.length - 1]?.content || "";
+      await historyManager.appendMessage(
+        {
+          role: "user",
+          content: userContent,
+          timestamp: new Date().toISOString(),
+        },
+        sessionId,
+      );
     }
 
     // 使用 Vercel AI SDK 的 streamText，从配置中获取 API 信息
@@ -267,7 +282,7 @@ export function createRouter(historyManager: HistoryManager) {
         apiKey: aiConfig.apiKey,
         baseURL: aiConfig.baseUrl,
         headers: {
-          'api-key': aiConfig.apiKey,
+          "api-key": aiConfig.apiKey,
         },
       }).chat(aiConfig.model),
       messages: formattedMessages,
@@ -280,18 +295,22 @@ export function createRouter(historyManager: HistoryManager) {
         try {
           // 只保存 AI 响应（用户消息已在调用前保存）
           for (const msg of uiMessages) {
-            if (msg.role !== 'assistant') continue;
-            
-            const content = msg.parts
-              ?.filter((p: any) => p.type === 'text')
-              .map((p: any) => p.text)
-              .join('') || '';
-            
-            await historyManager.appendMessage({
-              role: 'assistant',
-              content,
-              timestamp: new Date().toISOString(),
-            }, sessionId);
+            if (msg.role !== "assistant") continue;
+
+            const content =
+              msg.parts
+                ?.filter((p: any) => p.type === "text")
+                .map((p: any) => p.text)
+                .join("") || "";
+
+            await historyManager.appendMessage(
+              {
+                role: "assistant",
+                content,
+                timestamp: new Date().toISOString(),
+              },
+              sessionId,
+            );
           }
           console.log(`[Chat] Saved AI response to session ${sessionId}`);
         } catch (error) {
@@ -301,25 +320,247 @@ export function createRouter(historyManager: HistoryManager) {
     });
   });
 
+  // ============================================
+  // Silent Mode Endpoints
+  // ============================================
+
+  // Create a new silent session
+  router.post("/silent/session", async (c) => {
+    try {
+      const session = await historyManager.createSilentSession();
+      return c.json({
+        success: true,
+        sessionId: session.id,
+        createdAt: session.createdAt,
+      });
+    } catch (error: any) {
+      console.error("[Silent] Failed to create session:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // Store a message without calling LLM
+  router.post("/silent/message", async (c) => {
+    try {
+      const { message, sessionId } = await c.req.json();
+
+      if (!message) {
+        return c.json({ error: "Message is required" }, 400);
+      }
+
+      // If no sessionId provided, create a new session
+      let targetSessionId = sessionId;
+      if (!targetSessionId) {
+        const session = await historyManager.createSilentSession();
+        targetSessionId = session.id;
+      }
+
+      const savedMessage = await historyManager.appendSilentMessage(
+        targetSessionId,
+        message,
+      );
+
+      return c.json({
+        success: true,
+        messageId: savedMessage.id,
+        sessionId: targetSessionId,
+        timestamp: savedMessage.timestamp,
+      });
+    } catch (error: any) {
+      console.error("[Silent] Failed to save message:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // Get silent session with all messages
+  router.get("/silent/session/:sessionId", async (c) => {
+    try {
+      const sessionId = c.req.param("sessionId");
+      const session = await historyManager.loadSilentSession(sessionId);
+
+      const pendingCount = session.messages.filter(
+        (m) => m.status === "pending",
+      ).length;
+
+      return c.json({
+        success: true,
+        session: {
+          ...session,
+          pendingCount,
+          messageCount: session.messages.length,
+        },
+      });
+    } catch (error: any) {
+      console.error("[Silent] Failed to load session:", error);
+      return c.json({ error: error.message }, 404);
+    }
+  });
+
+  // Get all silent sessions
+  router.get("/silent/sessions", async (c) => {
+    try {
+      const sessionIds = await historyManager.getAllSilentSessions();
+
+      const sessions = await Promise.all(
+        sessionIds.map(async (id) => {
+          try {
+            const session = await historyManager.loadSilentSession(id);
+            const pendingCount = session.messages.filter(
+              (m) => m.status === "pending",
+            ).length;
+            return {
+              id: session.id,
+              messageCount: session.messages.length,
+              pendingCount,
+              createdAt: session.createdAt,
+              lastUpdated: session.lastUpdated,
+            };
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      // Filter out failed sessions and sort by lastUpdated (newest first)
+      const validSessions = sessions
+        .filter((s) => s !== null)
+        .sort((a, b) =>
+          (a?.lastUpdated || "") > (b?.lastUpdated || "") ? -1 : 1,
+        );
+
+      return c.json({ sessions: validSessions });
+    } catch (error: any) {
+      console.error("[Silent] Failed to list sessions:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // Bulk process pending messages
+  router.post("/silent/process", async (c) => {
+    try {
+      const { sessionId, mergeStrategy = "concatenate" } = await c.req.json();
+
+      if (!sessionId) {
+        return c.json({ error: "sessionId is required" }, 400);
+      }
+
+      const session = await historyManager.loadSilentSession(sessionId);
+      const pendingMessages = session.messages.filter(
+        (m) => m.status === "pending",
+      );
+
+      if (pendingMessages.length === 0) {
+        return c.json({
+          success: true,
+          sessionId,
+          processedCount: 0,
+          message: "No pending messages to process",
+        });
+      }
+
+      // Merge messages based on strategy
+      let mergedContent: string;
+      if (mergeStrategy === "separate") {
+        // Each message gets its own processing context
+        mergedContent = pendingMessages
+          .map((m, i) => `[Item ${i + 1}]\n${m.content}`)
+          .join("\n\n---\n\n");
+      } else {
+        // Default: concatenate all messages
+        mergedContent = pendingMessages.map((m) => m.content).join("\n\n");
+      }
+
+      // Create a system prompt to explain the context
+      const systemPrompt = `You are processing a batch of ${
+        pendingMessages.length
+      } items that the user saved for later processing. ${
+        mergeStrategy === "separate"
+          ? "Each item is separated by '---'. Process each item independently and provide responses for each."
+          : "Process all the content together and provide a comprehensive response."
+      }`;
+
+      // Call LLM with merged content
+      const result = await streamText({
+        model: createOpenAI({
+          apiKey: aiConfig.apiKey,
+          baseURL: aiConfig.baseUrl,
+          headers: {
+            "api-key": aiConfig.apiKey,
+          },
+        }).chat(aiConfig.model),
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: mergedContent },
+        ],
+      });
+
+      // Return streaming response
+      return result.toUIMessageStreamResponse({
+        onFinish: async ({ messages }) => {
+          try {
+            // Mark all pending messages as processed and save AI response
+            const messageIds = pendingMessages.map((m) => m.id);
+            const aiMessage = messages.find((m) => m.role === "assistant");
+            const text =
+              aiMessage?.parts
+                ?.filter((p: any) => p.type === "text")
+                .map((p: any) => p.text)
+                .join("") || "";
+            await historyManager.markMessagesProcessed(
+              sessionId,
+              messageIds,
+              text,
+            );
+            console.log(
+              `[Silent] Marked ${messageIds.length} messages as processed`,
+            );
+          } catch (error) {
+            console.error(
+              "[Silent] Failed to mark messages as processed:",
+              error,
+            );
+          }
+        },
+      });
+    } catch (error: any) {
+      console.error("[Silent] Failed to process messages:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // Delete a specific message from silent session
+  router.delete("/silent/session/:sessionId/message/:messageId", async (c) => {
+    try {
+      const sessionId = c.req.param("sessionId");
+      const messageId = c.req.param("messageId");
+
+      await historyManager.deleteSilentMessage(sessionId, messageId);
+
+      return c.json({
+        success: true,
+        message: `Message ${messageId} deleted from session ${sessionId}`,
+      });
+    } catch (error: any) {
+      console.error("[Silent] Failed to delete message:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // Delete entire silent session
+  router.delete("/silent/session/:sessionId", async (c) => {
+    try {
+      const sessionId = c.req.param("sessionId");
+      await historyManager.deleteSilentSession(sessionId);
+
+      return c.json({
+        success: true,
+        message: `Silent session ${sessionId} deleted`,
+      });
+    } catch (error: any) {
+      console.error("[Silent] Failed to delete session:", error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
   return router;
-}
-
-// 后台处理函数 (保持兼容)
-// 注意：SessionPrompt.prompt() 已经会保存用户消息和 AI 回复，这里不再重复保存
-async function processInBackground(
-  date: string,
-  userMessage: string,
-  historyManager: HistoryManager
-) {
-  try {
-    const sessionPrompt = new SessionPrompt(date, historyManager);
-
-    // 使用非流式方式生成响应
-    // SessionPrompt.prompt() 会自动保存用户消息和 AI 回复
-    await sessionPrompt.prompt(userMessage, { stream: false });
-
-    console.log(`[${date}] AI 回复已保存`);
-  } catch (error) {
-    console.error("[Background Processing Error]", error);
-  }
 }

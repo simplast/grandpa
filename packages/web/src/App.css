@@ -5,7 +5,9 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+    Cantarell, sans-serif;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   min-height: 100vh;
 }
@@ -84,7 +86,9 @@ body {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: opacity 0.2s, transform 0.1s;
+  transition:
+    opacity 0.2s,
+    transform 0.1s;
 }
 
 .new-chat-btn:hover {
@@ -327,10 +331,18 @@ body {
   line-height: 1.3;
 }
 
-.message.assistant .message-text h1 { font-size: 1.5em; }
-.message.assistant .message-text h2 { font-size: 1.3em; }
-.message.assistant .message-text h3 { font-size: 1.1em; }
-.message.assistant .message-text h4 { font-size: 1em; }
+.message.assistant .message-text h1 {
+  font-size: 1.5em;
+}
+.message.assistant .message-text h2 {
+  font-size: 1.3em;
+}
+.message.assistant .message-text h3 {
+  font-size: 1.1em;
+}
+.message.assistant .message-text h4 {
+  font-size: 1em;
+}
 
 .message.assistant .message-text h1:first-child,
 .message.assistant .message-text h2:first-child,
@@ -352,7 +364,7 @@ body {
   background: rgba(0, 0, 0, 0.08);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
   font-size: 0.9em;
 }
 
@@ -443,7 +455,9 @@ body {
 }
 
 @keyframes typing {
-  0%, 80%, 100% {
+  0%,
+  80%,
+  100% {
     transform: scale(0);
   }
   40% {
@@ -486,7 +500,9 @@ body {
   border-radius: 24px;
   font-size: 16px;
   cursor: pointer;
-  transition: opacity 0.3s, transform 0.1s;
+  transition:
+    opacity 0.3s,
+    transform 0.1s;
 }
 
 .input-form button:hover:not(:disabled) {
@@ -550,5 +566,270 @@ body {
 
   .message {
     max-width: 90%;
+  }
+}
+
+/* ============================================
+   Silent Mode Styles
+   ============================================ */
+
+/* New Chat Dropdown */
+.new-chat-container {
+  position: relative;
+  margin: 16px;
+}
+
+.new-chat-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #2a2a4e;
+  border-radius: 12px;
+  margin-top: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dropdown-icon {
+  font-size: 24px;
+  width: 32px;
+  text-align: center;
+}
+
+.dropdown-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dropdown-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.dropdown-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Session Sections */
+.session-section {
+  margin-top: 8px;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 20px;
+  margin: 0;
+}
+
+/* Silent Session Styles */
+.silent-session {
+  position: relative;
+}
+
+.silent-session .session-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pending-badge {
+  background: #ff6b6b;
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.delete-session-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 107, 107, 0.2);
+  border: none;
+  color: #ff6b6b;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  font-size: 12px;
+}
+
+.session-item:hover .delete-session-btn {
+  opacity: 1;
+}
+
+.delete-session-btn:hover {
+  background: rgba(255, 107, 107, 0.4);
+}
+
+/* Silent Messages */
+.silent-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.message.pending {
+  border-left: 3px solid #667eea;
+}
+
+.message.processed {
+  border-left: 3px solid #4caf50;
+  opacity: 0.7;
+}
+
+.message-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.status-badge.pending {
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+}
+
+.status-badge.processed {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+}
+
+.message-time {
+  color: #999;
+}
+
+.delete-message-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 107, 107, 0.2);
+  border: none;
+  color: #ff6b6b;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  margin-left: 8px;
+  flex-shrink: 0;
+  transition: background 0.2s;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+}
+
+.delete-message-btn:hover {
+  background: rgba(255, 107, 107, 0.4);
+}
+
+/* Process Button */
+.process-btn {
+  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%) !important;
+  margin-left: 8px;
+}
+
+.process-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Empty State Hint */
+.empty-state .hint {
+  font-size: 14px;
+  color: #bbb;
+  margin-top: 8px;
+}
+
+/* Message Status Indicator in Real-time */
+.message.user .message-content {
+  position: relative;
+}
+
+/* Active session highlighting */
+.session-item.active.silent-session {
+  background: rgba(76, 175, 80, 0.2);
+  border: 1px solid rgba(76, 175, 80, 0.4);
+}
+
+/* Silent AI Response */
+.silent-ai-response {
+  margin-top: 20px;
+  border-top: 2px dashed rgba(102, 126, 234, 0.3);
+  padding-top: 20px;
+}
+
+.silent-ai-response .message-avatar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.typing-indicator {
+  display: flex;
+  gap: 6px;
+  padding: 8px 4px;
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  background: #667eea;
+  border-radius: 50%;
+  animation: typing 1.4s infinite ease-in-out both;
+}
+
+.typing-indicator span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes typing {
+  0%,
+  80%,
+  100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
   }
 }

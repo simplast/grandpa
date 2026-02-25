@@ -100,7 +100,7 @@ export class ConfigManager {
   // 从环境变量获取配置
   private getFromEnv<K extends keyof ConfigSchema>(
     key: K,
-  ): string | number | boolean | undefined {
+  ): ConfigSchema[K] | undefined {
     switch (key) {
       case "ai":
         const apiKey =
