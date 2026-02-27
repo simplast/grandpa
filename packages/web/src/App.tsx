@@ -48,6 +48,12 @@ function App() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+  // Theme state
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    const saved = localStorage.getItem("grandpa-theme");
+    return (saved as "dark" | "light") || "dark";
+  });
+
   // Silent mode state
   const [chatMode, setChatMode] = useState<ChatMode>("realtime");
   const [silentSessions, setSilentSessions] = useState<SilentSessionInfo[]>([]);
@@ -375,11 +381,11 @@ function App() {
   ).length;
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${theme}`}>
       {/* Sidebar */}
       <aside className={`sidebar ${isSidebarOpen ? "open" : "closed"}`}>
         <div className="sidebar-header">
-          <h2>Chat History</h2>
+          <h2>LOGS</h2>
           <button
             className="sidebar-toggle"
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -398,7 +404,7 @@ function App() {
               setShowNewChatDropdown(!showNewChatDropdown);
             }}
           >
-            + New Chat ▼
+            [+] NEW SESSION
           </button>
           {showNewChatDropdown && (
             <div
@@ -406,17 +412,17 @@ function App() {
               onClick={(e) => e.stopPropagation()}
             >
               <button className="dropdown-item" onClick={handleNewRealtimeChat}>
-                <span className="dropdown-icon">💬</span>
+                <span className="dropdown-icon">&gt;</span>
                 <span className="dropdown-text">
-                  <span className="dropdown-title">Real-time Chat</span>
-                  <span className="dropdown-desc">Instant AI responses</span>
+                  <span className="dropdown-title">REALTIME</span>
+                  <span className="dropdown-desc">Instant response</span>
                 </span>
               </button>
               <button className="dropdown-item" onClick={handleNewSilentChat}>
-                <span className="dropdown-icon">📝</span>
+                <span className="dropdown-icon">#</span>
                 <span className="dropdown-text">
-                  <span className="dropdown-title">Silent Mode</span>
-                  <span className="dropdown-desc">Save & process later</span>
+                  <span className="dropdown-title">SILENT</span>
+                  <span className="dropdown-desc">Batch process</span>
                 </span>
               </button>
             </div>
@@ -425,7 +431,7 @@ function App() {
 
         {/* Real-time Sessions */}
         <div className="session-section">
-          <h3 className="section-title">Real-time Chats</h3>
+          <h3 className="section-title">Realtime</h3>
           <div className="session-list">
             {sessions.length === 0 ? (
               <div className="no-sessions">No chat history yet</div>
@@ -443,7 +449,7 @@ function App() {
                   <div className="session-date">{formatDate(session.date)}</div>
                   <div className="session-preview">{session.preview}</div>
                   <div className="session-meta">
-                    {session.messageCount} messages
+                    {session.messageCount} msgs
                   </div>
                 </div>
               ))
@@ -453,7 +459,7 @@ function App() {
 
         {/* Silent Sessions */}
         <div className="session-section">
-          <h3 className="section-title">Silent Sessions</h3>
+          <h3 className="section-title">Silent</h3>
           <div className="session-list">
             {silentSessions.length === 0 ? (
               <div className="no-sessions">No silent sessions</div>
@@ -473,12 +479,12 @@ function App() {
                     {formatDateTime(session.createdAt)}
                     {session.pendingCount > 0 && (
                       <span className="pending-badge">
-                        {session.pendingCount}
+                        {session.pendingCount}P
                       </span>
                     )}
                   </div>
                   <div className="session-preview">
-                    {session.messageCount} messages saved
+                    {session.messageCount} msgs stored
                   </div>
                   <button
                     className="delete-session-btn"
@@ -488,7 +494,7 @@ function App() {
                     }}
                     title="Delete session"
                   >
-                    ✕
+                    X
                   </button>
                 </div>
               ))
@@ -502,34 +508,49 @@ function App() {
         <div className="chat-container">
           <header className="chat-header">
             <div className="header-content">
-              <h1>🤖 Grandpa Chat</h1>
+              <h1>GRANDPA</h1>
               <p>
-                {chatMode === "realtime"
-                  ? "Real-time AI Assistant"
-                  : "Silent Mode - Save & Process Later"}
+                {chatMode === "realtime" ? "[REALTIME MODE]" : "[SILENT MODE]"}
               </p>
             </div>
-            {!isSidebarOpen && (
+            <div className="header-actions">
               <button
-                className="sidebar-toggle-mobile"
-                onClick={() => setIsSidebarOpen(true)}
+                className="theme-toggle"
+                onClick={() => {
+                  const newTheme = theme === "dark" ? "light" : "dark";
+                  setTheme(newTheme);
+                  localStorage.setItem("grandpa-theme", newTheme);
+                }}
+                title={
+                  theme === "dark"
+                    ? "Switch to light mode"
+                    : "Switch to dark mode"
+                }
               >
-                ☰ History
+                {theme === "dark" ? "[LIGHT]" : "[DARK]"}
               </button>
-            )}
+              {!isSidebarOpen && (
+                <button
+                  className="sidebar-toggle-mobile"
+                  onClick={() => setIsSidebarOpen(true)}
+                >
+                  [LOGS]
+                </button>
+              )}
+            </div>
           </header>
 
           <div className="messages-container" ref={chatContainerRef}>
             {isLoadingHistory ? (
               <div className="loading-state">
                 <div className="loading-spinner"></div>
-                <p>Loading...</p>
+                <p>LOADING_</p>
               </div>
             ) : chatMode === "realtime" ? (
               // Real-time mode messages
               messages.length === 0 ? (
                 <div className="empty-state">
-                  <p>Start a conversation by typing below...</p>
+                  <p>{"> "}AWAITING INPUT_</p>
                 </div>
               ) : (
                 messages.map((message) => (
@@ -564,9 +585,9 @@ function App() {
             ) : // Silent mode messages
             silentMessages.length === 0 ? (
               <div className="empty-state">
-                <p>Add messages to process later...</p>
+                <p>{"> "}NO MESSAGES_</p>
                 <p className="hint">
-                  Messages will be saved without AI response
+                  Messages saved locally for batch processing
                 </p>
               </div>
             ) : (
@@ -578,7 +599,7 @@ function App() {
                         key={message.id}
                         className={`message user ${message.status || ""}`}
                       >
-                        <div className="message-avatar">📝</div>
+                        <div className="message-avatar">[#]</div>
                         <div className="message-content">
                           <div className="message-text">{message.content}</div>
                           <div className="message-status">
@@ -598,7 +619,7 @@ function App() {
                             }
                             title="Remove message"
                           >
-                            ✕
+                            X
                           </button>
                         )}
                       </div>
@@ -679,11 +700,7 @@ function App() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={
-                chatMode === "realtime"
-                  ? "Type your message..."
-                  : "Add a task, idea, or note..."
-              }
+              placeholder={chatMode === "realtime" ? "> input_" : "> add task_"}
               className="message-input"
               disabled={status !== "ready" && chatMode === "realtime"}
             />
@@ -692,12 +709,12 @@ function App() {
                 type="submit"
                 disabled={status !== "ready" || !input.trim()}
               >
-                Send
+                EXEC
               </button>
             ) : (
               <>
                 <button type="submit" disabled={!input.trim()}>
-                  Save
+                  SAVE
                 </button>
                 {pendingCount > 0 && (
                   <button
@@ -711,8 +728,8 @@ function App() {
                   >
                     {silentStatus === "streaming" ||
                     silentStatus === "submitted"
-                      ? "Processing..."
-                      : `Process (${pendingCount})`}
+                      ? "PROCESSING..."
+                      : `RUN [${pendingCount}]`}
                   </button>
                 )}
               </>

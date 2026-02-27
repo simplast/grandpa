@@ -14,6 +14,7 @@ A modern CLI application with AI chat capabilities and chat history management, 
 - **AI Chat**: Integrated AI chat functionality with history management
 - **Chat History**: View and manage chat history by date
 - **Web Interface**: Modern React-based chat UI with hot reload
+- **Theme Toggle**: Light/dark mode with hacker-style terminal aesthetic
 - **History Sidebar**: Browse and switch between chat sessions
 - **Markdown Rendering**: Full GFM support with syntax highlighting
 - **Plugin System**: Easy to extend with new commands
@@ -39,21 +40,21 @@ grandpa/
 
 ## 🛠️ Tech Stack
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| **Bun** | Latest | Package manager & runtime |
-| **TypeScript** | Latest | Type safety |
-| **Turborepo** | Latest | Monorepo build system |
-| **Commander** | Latest | CLI framework |
-| **Inquirer** | Latest | Interactive prompts |
-| **Zod** | Latest | Schema validation |
-| **Chalk** | Latest | Terminal styling |
-| **Ora** | Latest | Spinners & progress |
-| **Hono** | Latest | HTTP server framework |
-| **Vite** | Latest | Web frontend build tool |
-| **React** | Latest | Web frontend framework |
-| **Vercel AI SDK** | Latest | AI integration and streaming |
-| **react-markdown** | Latest | Markdown rendering |
+| Tool               | Version | Purpose                      |
+| ------------------ | ------- | ---------------------------- |
+| **Bun**            | Latest  | Package manager & runtime    |
+| **TypeScript**     | Latest  | Type safety                  |
+| **Turborepo**      | Latest  | Monorepo build system        |
+| **Commander**      | Latest  | CLI framework                |
+| **Inquirer**       | Latest  | Interactive prompts          |
+| **Zod**            | Latest  | Schema validation            |
+| **Chalk**          | Latest  | Terminal styling             |
+| **Ora**            | Latest  | Spinners & progress          |
+| **Hono**           | Latest  | HTTP server framework        |
+| **Vite**           | Latest  | Web frontend build tool      |
+| **React**          | Latest  | Web frontend framework       |
+| **Vercel AI SDK**  | Latest  | AI integration and streaming |
+| **react-markdown** | Latest  | Markdown rendering           |
 
 ## 📦 Installation
 
@@ -167,10 +168,10 @@ bun install
 # Start CLI development mode (watch mode)
 bun run dev
 
-# Start server development mode
+# Start server development mode (port 3478)
 bun run dev:server
 
-# Start web frontend development mode
+# Start web frontend development mode (port 3000)
 bun run dev:web
 
 # Start both server and web frontend concurrently (recommended)
@@ -244,6 +245,7 @@ program
 ```
 
 3. Rebuild and link for global usage:
+
 ```bash
 bun run build
 cd apps/cli
@@ -303,6 +305,7 @@ DEBUG=true
 ### User Configuration
 
 Configuration is stored in:
+
 - macOS: `~/Library/Application Support/grandpa-cli/config.json`
 - Linux: `~/.config/grandpa-cli/config.json`
 - Windows: `%APPDATA%\grandpa-cli\config.json`
@@ -360,7 +363,16 @@ grandpa history --clear 2026-01-20
 
 ## 🔧 Customization
 
-### Theme Support
+### Web Interface Theme
+
+The web UI features a hacker-style terminal aesthetic with:
+
+- **Dark mode** (default): Charcoal background with green accents (#00ff00)
+- **Light mode**: Clean white/gray theme with green accents
+- **Toggle**: Click the [LIGHT]/[DARK] button in the header to switch themes
+- **Persistence**: Theme preference is saved to localStorage
+
+### CLI Theme Support
 
 The template includes theme configuration. Extend in `packages/config/src/schema.ts`:
 
@@ -400,6 +412,7 @@ Inspired by [OpenCode](https://github.com/anomalyco/opencode) - A powerful AI-po
 ### Common Issues
 
 **Command not found after installation:**
+
 ```bash
 # Ensure the CLI is built
 bun run build
@@ -412,6 +425,7 @@ export PATH="$HOME/.bun/bin:$PATH"
 ```
 
 **TypeScript errors:**
+
 ```bash
 # Clean and reinstall
 bun run clean
@@ -419,12 +433,14 @@ bun install
 ```
 
 **Configuration issues:**
+
 ```bash
 # Reset configuration
 grandpa config reset
 ```
 
 **History not found:**
+
 ```bash
 # List available history dates
 grandpa history --list
@@ -436,6 +452,7 @@ ls ~/Library/Application Support/grandpa-cli/history/
 ## 📞 Support
 
 For issues and questions:
+
 - Open an issue on GitHub
 - Check the [OpenCode documentation](https://github.com/anomalyco/opencode)
 
